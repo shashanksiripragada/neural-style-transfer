@@ -163,8 +163,8 @@ def style_transfer(content_image, style_image, image_size, style_size, content_l
 
 
 params1 = {
-    'content_image' : 'styles/tubingen.jpg',
-    'style_image' : 'styles/composition_vii.jpg',
+    'content_image' : 'content.jpg',
+    'style_image' : 'style.jpg',
     'image_size' : 192,
     'style_size' : 512,
     'content_layer' : 3,
