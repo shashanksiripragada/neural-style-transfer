@@ -3,7 +3,6 @@ import torchvision
 import torchvision.transforms as T
 import PIL
 import numpy as np
-import matplotlib.pyplot as plt
 
 from image_utils import SQUEEZENET_MEAN, SQUEEZENET_STD
 
@@ -40,7 +39,6 @@ def features_from_img(imgpath, imgsize):
     img_var = img.type(dtype)
     return extract_features(img_var, cnn), img_var
 
-
 dtype = torch.FloatTensor
 
 cnn = torchvision.models.squeezenet1_1(pretrained=True).features
@@ -58,7 +56,6 @@ def extract_features(x, cnn):
         features.append(next_feat)
         prev_feat = next_feat
     return features
-
 
 def content_loss(content_weight, content_current, content_original):
     loss = content_weight * ((content_current-content_original).pow(2).sum())    
@@ -93,25 +90,21 @@ def tv_loss(img, tv_weight):
 def style_transfer(content_image, style_image, image_size, style_size, content_layer, content_weight,
                    style_layers, style_weights, tv_weight, init_random = False):
     
-    # Extract features for the content image
     content_img = preprocess(PIL.Image.open(content_image), size=image_size)
-    feats = extract_features(content_img, cnn)
-    content_target = feats[content_layer].clone()
+    content_feats = extract_features(content_img, cnn)
+    content_target = content_feats[content_layer].clone()
 
-    # Extract features for the style image
     style_img = preprocess(PIL.Image.open(style_image), size=style_size)
-    feats = extract_features(style_img, cnn)
+    style_feats = extract_features(style_img, cnn)
     style_targets = []
     for idx in style_layers:
-        style_targets.append(gram_matrix(feats[idx].clone()))
+        style_targets.append(gram_matrix(style_feats[idx].clone()))
 
-    # Initialize output image to content image or nois
     if init_random:
         img = torch.Tensor(content_img.size()).uniform_(0, 1).type(dtype)
     else:
         img = content_img.clone().type(dtype)
 
-    # We do want the gradient computed on our image!
     img.requires_grad_()
 
     initial_lr = 3.0
@@ -119,49 +112,28 @@ def style_transfer(content_image, style_image, image_size, style_size, content_l
     decay_lr_at = 180
 
     optimizer = torch.optim.Adam([img], lr=initial_lr)
-    
-    f, axarr = plt.subplots(1,2)
-    axarr[0].axis('off')
-    axarr[1].axis('off')
-    axarr[0].set_title('Content Source Img.')
-    axarr[1].set_title('Style Source Img.')
-    axarr[0].imshow(deprocess(content_img.cpu()))
-    axarr[1].imshow(deprocess(style_img.cpu()))
-    plt.show()
-    plt.figure()
-    
+
     for t in range(200):
         if t < 190:
             img.data.clamp_(-1.5, 1.5)
         optimizer.zero_grad()
 
-        feats = extract_features(img, cnn)
+        img_feats = extract_features(img, cnn)
         
-        # Compute loss
-        c_loss = content_loss(content_weight, feats[content_layer], content_target)
-        s_loss = style_loss(feats, style_layers, style_targets, style_weights)
+        c_loss = content_loss(content_weight, img_feats[content_layer], content_target)
+        s_loss = style_loss(img_feats, style_layers, style_targets, style_weights)
         t_loss = tv_loss(img, tv_weight) 
         loss = c_loss + s_loss + t_loss
         
         loss.backward()
 
-        # Perform gradient descents on our image values
         if t == decay_lr_at:
             optimizer = torch.optim.Adam([img], lr=decayed_lr)
         optimizer.step()
 
-        if t % 100 == 0:
-            print('Iteration {}'.format(t))
-            plt.axis('off')
-            plt.imshow(deprocess(img.data.cpu()))
-            plt.show()
-    print('Iteration {}'.format(t))
-    plt.axis('off')
-    plt.imshow(deprocess(img.data.cpu()))
-    plt.show()
-
-
-
+    img = deprocess(img.data.cpu())
+    img.save('style_transfer_out.png')
+        
 params1 = {
     'content_image' : 'content.jpg',
     'style_image' : 'style.jpg',
