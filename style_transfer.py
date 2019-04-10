@@ -4,7 +4,9 @@ import torchvision.transforms as T
 import PIL
 import numpy as np
 
-from image_utils import SQUEEZENET_MEAN, SQUEEZENET_STD
+SQUEEZENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+SQUEEZENET_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+
 
 def preprocess(img, size=512):
     transform = T.Compose([
